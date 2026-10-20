@@ -1,5 +1,6 @@
 import asyncio
 
+from app.core.config import settings
 from app.db.session import init_db
 from app.workers.broker import broker
 from app.workers.queue import wait_for_redis
@@ -10,7 +11,8 @@ import app.workers.jobs  # noqa: F401
 
 #Tut obrabatyvayu main, vse po delu i bez lishnego.
 async def main() -> None:
-    init_db()
+    if settings.auto_init_db:
+        init_db()
     wait_for_redis()
     await broker.startup()
     try:

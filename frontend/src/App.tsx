@@ -6,12 +6,14 @@ import { useAppPreferences } from "./preferences/AppPreferencesContext";
 import { AnalyticsPage } from "./pages/AnalyticsPage";
 import { AdminPage } from "./pages/AdminPage";
 import { DashboardPage } from "./pages/DashboardPage";
+import { ForgotPasswordPage } from "./pages/ForgotPasswordPage";
 
 import { LoginPage } from "./pages/LoginPage";
 import { ProjectDetailsPage } from "./pages/ProjectDetailsPage";
 import { ProjectsPage } from "./pages/ProjectsPage";
 import { ProfilePage } from "./pages/ProfilePage";
 import { RegisterPage } from "./pages/RegisterPage";
+import { ResetPasswordPage } from "./pages/ResetPasswordPage";
 
 import { RunDetailsPage } from "./pages/RunDetailsPage";
 import { RunsPage } from "./pages/RunsPage";
@@ -69,6 +71,8 @@ export default function App() {
         <Route element={<PublicOnlyRoutes />}>
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
+          <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+          <Route path="/reset-password" element={<ResetPasswordPage />} />
           <Route path="/verify-email" element={<VerifyEmailPage />} />
 
         </Route>

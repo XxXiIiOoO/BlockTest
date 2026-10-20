@@ -32,3 +32,32 @@
 В основе BlockTest — взаимодействие нескольких компонентов: веб-приложения, API, очереди фоновых задач и среды тестирования смарт-контрактов.
 
 Каждый из них отвечает за свою часть процесса, формируя единую систему для автоматизации тестирования.
+
+## Локальный запуск
+
+Требуются Docker Engine и Docker Compose. Создайте локальный env-файл и запустите сервисы:
+
+```sh
+cp .env.example .env
+docker compose up --build
+```
+
+Frontend будет доступен на `http://localhost:5173`, API на `http://localhost:8000`. В локальном Compose Docker socket проброшен только сервису worker: он нужен текущему механизму запуска тестов и даёт этому контейнеру полный контроль над Docker-хостом. Не используйте эту конфигурацию для недоверенного multi-tenant production.
+
+Тестовые контейнеры запускаются в отдельной внутренней сети `blocktest_execution`. В ней доступен локальный Hardhat, но нет доступа к сети приложения с API, PostgreSQL и Redis. Эта сеть не предоставляет выход в интернет; загрузку GitHub-репозитория выполняет worker до запуска теста.
+
+## Production Compose
+
+Production-конфигурация использует отдельный backend-образ от non-root пользователя, frontend на Nginx, внутренние PostgreSQL/Redis без опубликованных портов и отдельный одноразовый сервис миграции:
+
+```sh
+cp .env.production.example .env.production
+# Отредактируйте .env.production: задайте секреты, домены и доступ к SMTP/runner daemon.
+docker compose --env-file .env.production -f docker-compose.production.yml up --build -d
+```
+
+Перед запуском замените все `replace-me` и `example.com`, задайте длинный случайный `JWT_SECRET_KEY` и пароль первоначального администратора, а `DATABASE_URL` и `POSTGRES_PASSWORD` настройте с одним паролем. После первого входа смените пароль администратора. `DOCKER_HOST` должен указывать на выделенный runner daemon, который не управляет Docker-хостом приложения. Настройте TLS клиентские сертификаты и ограничьте сетевой доступ к daemon. Не монтируйте `/var/run/docker.sock` в production API или worker.
+
+`DOCKER_RUNNER_NETWORK` должен указывать на изолированную внутреннюю сеть, заранее созданную на runner daemon; `DOCKER_RUNNER_NETWORK_ISOLATED=true` подтверждает этот выбор в production-конфигурации. Не подключайте к ней API, worker, базу или Redis. Если тестам нужен доступ к Hardhat, подключите только Hardhat к этой сети. Scheduler вынесен в отдельный сервис; в production запускайте ровно одну его реплику. Для Kubernetes используйте отдельный миграционный Job, readiness `/health/ready`, liveness `/health/live`, а scheduler оставьте singleton или добавьте распределённую блокировку до масштабирования.
+
+CI workflow находится в `.github/workflows/ci.yml`: он запускает backend tests и frontend build для push и pull request.

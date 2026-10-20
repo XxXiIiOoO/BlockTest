@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 import hashlib
+import hmac
 import secrets
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, Header, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -203,7 +204,7 @@ def rotate_webhook_token(
 )
 async def trigger_test_webhook(
     test_id: int,
-    token: str = Query(min_length=10),
+    token: str = Header(alias="X-BlockTest-Webhook-Token", min_length=10),
     db: Session = Depends(get_db),
 ) -> AutomationRunTriggerResponse:
     test = db.scalar(select(Test).where(Test.id == test_id))
@@ -215,7 +216,7 @@ async def trigger_test_webhook(
             detail="Вебхук для теста выключен",
         )
 
-    if test.webhook_token_hash != _hash_webhook_token(token):
+    if not hmac.compare_digest(test.webhook_token_hash, _hash_webhook_token(token)):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Неверный токен вебхука",

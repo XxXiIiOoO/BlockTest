@@ -83,6 +83,7 @@ class Settings(BaseSettings):
         default=30,
         alias="DOCKER_RUN_TIMEOUT_SECONDS",
     )
+    docker_max_output_bytes: int = Field(default=1_000_000, ge=1024, alias="DOCKER_MAX_OUTPUT_BYTES")
     docker_memory_limit: str = Field(default="256m", alias="DOCKER_MEMORY_LIMIT")
     docker_pids_limit: int = Field(default=128, alias="DOCKER_PIDS_LIMIT")
     docker_nano_cpus: int = Field(default=1_000_000_000, alias="DOCKER_NANO_CPUS")
@@ -100,9 +101,18 @@ class Settings(BaseSettings):
         default=None,
         alias="DOCKER_COMPOSE_NETWORK",
     )
+    docker_runner_network: str | None = Field(
+        default=None,
+        alias="DOCKER_RUNNER_NETWORK",
+    )
+    docker_runner_network_isolated: bool = Field(
+        default=False,
+        alias="DOCKER_RUNNER_NETWORK_ISOLATED",
+    )
 
     taskiq_queue_name: str = Field(default="default", alias="TASKIQ_QUEUE_NAME")
     scheduler_enabled: bool = Field(default=True, alias="BLOCKTEST_SCHEDULER_ENABLED")
+    auto_init_db: bool = Field(default=True, alias="BLOCKTEST_AUTO_INIT_DB")
     scheduler_tick_seconds: int = Field(
         default=60,
         ge=5,
@@ -176,8 +186,11 @@ class Settings(BaseSettings):
             errors.append("EMAIL_DELIVERY_MODE must be smtp when EMAIL_2FA_ENABLED is true in production")
         if not self.docker_allowed_images:
             errors.append("DOCKER_ALLOWED_IMAGES must not be empty in production")
-        if not self.docker_network_disabled and not self.docker_compose_network:
-            errors.append("Docker network access must be disabled or pinned to a compose network in production")
+        runner_network = self.docker_runner_network or self.docker_compose_network
+        if runner_network and not self.docker_runner_network_isolated:
+            errors.append("DOCKER_RUNNER_NETWORK_ISOLATED must be true when a runner network is configured")
+        if not runner_network and not self.docker_network_disabled:
+            errors.append("Docker network access must be disabled or attached to an explicitly configured runner network")
 
         if errors:
             raise RuntimeError("Unsafe production configuration: " + "; ".join(errors))

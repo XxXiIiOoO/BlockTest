@@ -1,0 +1,128 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?Set POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:?Set POSTGRES_DB}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks: [application]
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    networks: [application]
+
+  migrate:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile.prod
+    env_file: .env.production
+    environment:
+      BLOCKTEST_AUTO_INIT_DB: "false"
+    command: ["python", "-m", "app.db.initialize"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks: [application]
+    restart: "no"
+
+  api:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile.prod
+    restart: unless-stopped
+    env_file: .env.production
+    environment:
+      BLOCKTEST_ENV: production
+      BLOCKTEST_AUTO_INIT_DB: "false"
+      BLOCKTEST_SCHEDULER_ENABLED: "false"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:8000:8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health/ready', timeout=2)"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 20s
+    networks: [application]
+
+  worker:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile.prod
+    restart: unless-stopped
+    env_file: .env.production
+    environment:
+      BLOCKTEST_ENV: production
+      BLOCKTEST_AUTO_INIT_DB: "false"
+      DOCKER_HOST: ${DOCKER_HOST:?Set DOCKER_HOST to a dedicated runner daemon}
+      DOCKER_TLS_VERIFY: ${DOCKER_TLS_VERIFY:-1}
+      DOCKER_CERT_PATH: ${DOCKER_CERT_PATH:-/run/secrets/docker}
+    command: ["python", "-m", "app.workers.worker"]
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+    networks: [application]
+    volumes:
+      - ${DOCKER_CERTS_DIR:?Set DOCKER_CERTS_DIR to the runner TLS client certificate directory}:/run/secrets/docker:ro
+
+  scheduler:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile.prod
+    restart: unless-stopped
+    env_file: .env.production
+    environment:
+      BLOCKTEST_ENV: production
+      BLOCKTEST_AUTO_INIT_DB: "false"
+    command: ["python", "-m", "app.workers.scheduler"]
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+    networks: [application]
+
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile.prod
+      args:
+        VITE_API_URL: ${VITE_API_URL:?Set the public API URL}
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    depends_on:
+      api:
+        condition: service_healthy
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  application:
+    name: blocktest_application

@@ -18,7 +18,7 @@ class AdminUserCreate(LocalEmailModel):
     bio: str | None = Field(default=None, max_length=2000)
 
 
-class AdminUserUpdate(BaseModel):
+class AdminUserUpdate(LocalEmailModel):
     email: str | None = Field(default=None, max_length=255)
     username: str | None = Field(default=None, min_length=3, max_length=100)
     password: str | None = Field(default=None, min_length=8, max_length=128)

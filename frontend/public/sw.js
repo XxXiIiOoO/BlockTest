@@ -1,4 +1,4 @@
-const CACHE_NAME = "blocktest-shell-v1";
+const CACHE_NAME = "blocktest-shell-v2";
 const APP_SHELL = [
   "/",
   "/index.html",
@@ -18,7 +18,11 @@ self.addEventListener("activate", (event) => {
     caches
       .keys()
       .then((keys) =>
-        Promise.all(keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key))),
+        Promise.all(
+          keys
+            .filter((key) => key.startsWith("blocktest-shell-") && key !== CACHE_NAME)
+            .map((key) => caches.delete(key)),
+        ),
       )
       .then(() => self.clients.claim()),
   );
@@ -46,6 +50,17 @@ self.addEventListener("fetch", (event) => {
   }
 
   if (url.origin !== self.location.origin) {
+    return;
+  }
+
+  // Keep Cache Storage limited to static frontend assets. Caching arbitrary
+  // same-origin GET responses can persist authenticated API data across users.
+  const isStaticAsset =
+    url.pathname.startsWith("/assets/") ||
+    url.pathname === "/manifest.webmanifest" ||
+    url.pathname === "/blocktest-icon.svg" ||
+    url.pathname === "/blocktest-icon-maskable.svg";
+  if (!isStaticAsset || request.headers.has("Authorization")) {
     return;
   }
 

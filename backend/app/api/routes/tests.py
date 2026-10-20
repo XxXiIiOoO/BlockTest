@@ -165,6 +165,22 @@ def update_test(
     for field, value in updates.items():
         setattr(test, field, value)
 
+    if test.repository_url and not test.command:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="GitHub dApp tests must provide a test command",
+        )
+    if test.repository_url and test.script:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="GitHub dApp tests cannot use inline Python scripts",
+        )
+    if not test.command and not test.script:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Either command or script must be provided",
+        )
+
     db.add(test)
     db.commit()
     db.refresh(test)

@@ -13,7 +13,8 @@ from app.services.scheduler import run_scheduler_loop
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     settings.validate_security_settings()
-    init_db()
+    if settings.auto_init_db:
+        init_db()
     scheduler_stop_event: asyncio.Event | None = None
     scheduler_task: asyncio.Task[None] | None = None
 

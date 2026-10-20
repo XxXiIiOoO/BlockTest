@@ -14,6 +14,8 @@ import zipfile
 
 
 MAX_GITHUB_ARCHIVE_BYTES = 100 * 1024 * 1024
+MAX_GITHUB_EXTRACTED_BYTES = 500 * 1024 * 1024
+MAX_GITHUB_ARCHIVE_FILES = 20_000
 GITHUB_NAME_RE = re.compile(r"^[A-Za-z0-9_.-]+$")
 
 
@@ -34,16 +36,26 @@ def parse_github_repository_url(value: str) -> GitHubRepository:
 
     if url.startswith("git@github.com:"):
         path = url.removeprefix("git@github.com:")
+        if "@" in path or "?" in path or "#" in path:
+            raise GitHubSourceError("GitHub URL must identify a repository only")
     else:
         if "://" not in url:
             url = f"https://{url}"
         parsed = urlparse(url)
-        if parsed.scheme not in {"http", "https"} or parsed.hostname != "github.com":
+        if (
+            parsed.scheme not in {"http", "https"}
+            or parsed.hostname != "github.com"
+            or parsed.username is not None
+            or parsed.password is not None
+            or parsed.port is not None
+            or parsed.query
+            or parsed.fragment
+        ):
             raise GitHubSourceError("Only github.com repository URLs are supported")
         path = parsed.path.strip("/")
 
     parts = [part for part in path.split("/") if part]
-    if len(parts) < 2:
+    if len(parts) != 2:
         raise GitHubSourceError("GitHub URL must look like https://github.com/owner/repo")
 
     owner = parts[0]
@@ -81,7 +93,12 @@ def _download_archive(repository: GitHubRepository, ref: str) -> bytes:
 def _safe_extract_zip(archive: bytes, target_dir: Path) -> None:
     try:
         with zipfile.ZipFile(io.BytesIO(archive)) as zip_file:
-            for member in zip_file.infolist():
+            members = zip_file.infolist()
+            if len(members) > MAX_GITHUB_ARCHIVE_FILES:
+                raise GitHubSourceError("GitHub archive contains too many files")
+            if sum(member.file_size for member in members) > MAX_GITHUB_EXTRACTED_BYTES:
+                raise GitHubSourceError("GitHub archive expands beyond the 500 MB import limit")
+            for member in members:
                 member_path = target_dir / member.filename
                 resolved = member_path.resolve()
                 if target_dir.resolve() not in (resolved, *resolved.parents):

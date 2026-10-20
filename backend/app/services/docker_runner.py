@@ -160,6 +160,23 @@ class DockerRunner:
         buf.seek(0)
         container.put_archive("/workspace", buf)
 
+    @staticmethod
+    def _read_limited_logs(container: object, *, stdout: bool, stderr: bool) -> str:
+        """Read container output without retaining an unbounded log stream."""
+        limit = settings.docker_max_output_bytes
+        output = bytearray()
+        truncated = False
+        for chunk in container.logs(stdout=stdout, stderr=stderr, stream=True):
+            remaining = max(0, limit - len(output))
+            if remaining > 0:
+                output.extend(chunk[:remaining])
+            if len(chunk) > remaining:
+                truncated = True
+        text = output.decode("utf-8", errors="replace").strip()
+        if truncated:
+            text += "\n[output truncated by BlockTest]"
+        return text
+
     def _build_shell_command(
         self,
         test: Test,
@@ -249,11 +266,20 @@ class DockerRunner:
                     "blocktest_npm_cache": {"bind": "/cache/npm", "mode": "rw"},
                     "blocktest_pip_cache": {"bind": "/cache/pip", "mode": "rw"},
                 },
+                # Provide writable scratch paths while keeping the image root
+                # filesystem read-only. /workspace must exist before put_archive.
+                "tmpfs": {
+                    "/workspace": "rw,nosuid,size=512m",
+                    "/tmp": "rw,nosuid,size=64m",
+                },
             }
             if run_id is not None:
                 create_kwargs["labels"] = {"blocktest.run_id": str(run_id)}
-            if settings.docker_compose_network:
-                create_kwargs["network"] = settings.docker_compose_network
+            runner_network = settings.docker_runner_network or settings.docker_compose_network
+            if runner_network:
+                # This network must be dedicated to test execution. Compose
+                # config attaches only the Hardhat node to it, not app services.
+                create_kwargs["network"] = runner_network
             else:
                 create_kwargs["network_disabled"] = settings.docker_network_disabled
 
@@ -299,11 +325,11 @@ class DockerRunner:
             if cancelled:
                 exit_code = 130
 
-            stdout = container.logs(stdout=True, stderr=False).decode("utf-8", errors="replace")
-            stderr = container.logs(stdout=False, stderr=True).decode("utf-8", errors="replace")
+            stdout = self._read_limited_logs(container, stdout=True, stderr=False)
+            stderr = self._read_limited_logs(container, stdout=False, stderr=True)
             return DockerRunResult(
-                stdout=stdout.strip(),
-                stderr=stderr.strip(),
+                stdout=stdout,
+                stderr=stderr,
                 exit_code=exit_code,
                 timed_out=timed_out,
                 cancelled=cancelled,

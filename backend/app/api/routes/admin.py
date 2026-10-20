@@ -122,6 +122,8 @@ def update_user(
     data = payload.model_dump(exclude_unset=True)
 
     if "email" in data:
+        if data["email"] is None:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Email не может быть пустым")
         email = str(data["email"]).strip().lower()
         if not email:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Email не может быть пустым")
@@ -129,6 +131,8 @@ def update_user(
         changes.append("email=updated")
 
     if "username" in data:
+        if data["username"] is None:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Логин не может быть пустым")
         username = str(data["username"]).strip()
         if not username:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Логин не может быть пустым")

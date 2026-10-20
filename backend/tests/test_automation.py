@@ -101,7 +101,7 @@ def test_webhook_trigger_queues_run(client, monkeypatch):
 
     webhook_response = client.post(
         f"/automation/webhook/{test_id}",
-        params={"token": token},
+        headers={"X-BlockTest-Webhook-Token": token},
     )
     assert webhook_response.status_code == 200
     payload = webhook_response.json()
