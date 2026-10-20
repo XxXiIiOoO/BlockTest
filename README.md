@@ -2,17 +2,17 @@
 
 # BlockTest
 
-**Containerized blockchain application testing platform**
+**Платформа автоматизированного тестирования блокчейн-приложений в Docker-контейнерах**
 
 Python · FastAPI · Docker · PostgreSQL · Redis · TaskIQ · React · Hardhat
 
-[Quick Start](#быстрый-старт) · [Architecture](#архитектура) · [Security](#безопасность)
+[Быстрый запуск](#быстрый-старт) · [Архитектура](#архитектура) · [Безопасность](#безопасность)
 
 </div>
 
 ---
 
-> **Portfolio highlight:** Full-stack test orchestration with asynchronous jobs, temporary Docker execution environments, live logs, reporting and role-based access. The worker uses the Docker socket; run only on trusted infrastructure.
+> **Особенность проекта:** выполнение тестов во временных Docker-контейнерах, асинхронная очередь задач, потоковые логи, отчёты и разграничение прав доступа. Worker использует Docker socket, поэтому развёртывание требует доверенной инфраструктуры.
 
 BlockTest - платформа для автоматизации тестирования блокчейн-приложений в изолированной Docker-среде.
 
