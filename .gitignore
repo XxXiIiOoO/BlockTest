@@ -19,3 +19,4 @@ locust-reports/
 
 postgres_data/
 backend/alembic_validation.db
+.idea/
