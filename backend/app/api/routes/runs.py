@@ -101,7 +101,7 @@ def require_test_write_access(db: Session, current_user: User, test_id: int) -> 
 def get_accessible_run(db: Session, current_user: User, run_id: int) -> Run:
     query = (
         select(Run)
-        .options(joinedload(Run.test).joinedload(Test.project), joinedload(Run.logs))
+        .options(joinedload(Run.test).joinedload(Test.project))
         .join(Test, Run.test_id == Test.id)
         .join(Project, Test.project_id == Project.id)
         .where(Run.id == run_id)
@@ -574,8 +574,8 @@ def cancel_run(
     run.finished_at = datetime.now(timezone.utc)
     run.exit_code = 130
     run.result_summary = "Запуск отменён пользователем"
-    run.logs.append(RunLog(message="Запуск отменён пользователем"))
     db.add(run)
+    db.add(RunLog(run_id=run.id, message="Запуск отменён пользователем"))
     db.commit()
     db.refresh(run)
     record_audit_event(
@@ -628,8 +628,11 @@ def get_run_logs(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> list[RunLogRead]:
-    run = get_accessible_run(db, current_user, run_id)
-    return [serialize_run_log(log) for log in run.logs]
+    get_accessible_run_summary(db, current_user, run_id)
+    logs = db.scalars(
+        select(RunLog).where(RunLog.run_id == run_id).order_by(asc(RunLog.id))
+    ).all()
+    return [serialize_run_log(log) for log in logs]
 
 
 @router.get("/runs/{run_id}/logs/stream")

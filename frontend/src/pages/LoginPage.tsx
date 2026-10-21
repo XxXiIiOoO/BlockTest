@@ -141,6 +141,11 @@ export function LoginPage() {
         <p className="auth-footer">
           {t("auth.login.noAccount")} <Link to="/register">{t("auth.login.register")}</Link>
         </p>
+        {!twoFactorEmail ? (
+          <p className="auth-footer">
+            <Link to="/forgot-password">{t("auth.forgot.submit")}</Link>
+          </p>
+        ) : null}
 
       </div>
     </div>

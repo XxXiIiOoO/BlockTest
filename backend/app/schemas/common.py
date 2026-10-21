@@ -7,7 +7,9 @@ class LocalEmailModel(BaseModel):
     #Funkciya validate_local_email zakryvaet konkretnuyu zadachu v etom meste.
     @field_validator("email", check_fields=False)
     @classmethod
-    def validate_local_email(cls, value: str) -> str:
+    def validate_local_email(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
         email = value.strip().lower()
         if email.count("@") != 1:
             raise ValueError("Email must contain a single @ symbol")

@@ -5,12 +5,18 @@ __pycache__/
 *.pyc
 *.pyo
 *.pyd
+*.tsbuildinfo
 
 node_modules/
 dist/
+frontend/playwright-report/
+frontend/test-results/
+locust-reports/
+*.db
 
 .pytest_cache/
 .mypy_cache/
 
 postgres_data/
 backend/alembic_validation.db
+.idea/
